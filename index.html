@@ -234,7 +234,7 @@ var I18N = {
     resetPw:'Сбросить пароль', resetAsk:'Точно сбросить на стартовый?', resetYes:'Да, сбросить', resetDone:'Пароль сброшен на стартовый',
     weights:'Вес экзамена, %', wBook:'Книга', wEdu:'Предмет', wEng:'Английский', books:'Книги месяца', bookTitle:'Название', exam2type:'Второй экзамен',
     lockMonth:'Закрыть месяц (менторы не правят)', adminOnlyNote:'Новых студентов пока добавляет разработчик: создаёт им вход в базе.',
-    badNum:'Нужно число от 0 до 100', saveErr:'Не сохранилось: нет прав или месяц закрыт', plusMinus:'+ / −'
+    badNum:'Нужно число от 0 до 100 или «н»', absNote:'Н — отсутствие: этот день не считается в среднем.', saveErr:'Не сохранилось: нет прав или месяц закрыт', plusMinus:'+ / −'
   },
   kk: {
     schedule:'Кесте', book:'Кітап', edu:'Пән', eng:'Ағылшын', idp:'IDP', steps:'Қадам',
@@ -260,7 +260,7 @@ var I18N = {
     resetPw:'Құпиясөзді қалпына келтіру', resetAsk:'Бастапқы құпиясөзге қайтарамыз ба?', resetYes:'Иә, қайтару', resetDone:'Құпиясөз бастапқыға қайтарылды',
     weights:'Емтихан үлесі, %', wBook:'Кітап', wEdu:'Пән', wEng:'Ағылшын', books:'Айдың кітаптары', bookTitle:'Атауы', exam2type:'Екінші емтихан',
     lockMonth:'Айды жабу (менторлар өзгертпейді)', adminOnlyNote:'Жаңа студентті әзірге әзірлеуші базада қосады.',
-    badNum:'0-ден 100-ге дейінгі сан керек', saveErr:'Сақталмады: құқық жоқ немесе ай жабық', plusMinus:'+ / −'
+    badNum:'0-ден 100-ге дейінгі сан немесе «н» керек', absNote:'Н — қатыспады: бұл күн орташаға кірмейді.', saveErr:'Сақталмады: құқық жоқ немесе ай жабық', plusMinus:'+ / −'
   }
 };
 var DAYS = {
@@ -296,10 +296,10 @@ try { var sv = localStorage.getItem('mu-lang'); if (sv === 'ru' || sv === 'kk') 
 function t(k) { return I18N[S.lang][k] != null ? I18N[S.lang][k] : k; }
 function el(id) { return document.getElementById(id); }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
-function fmt(v) { return v == null ? '—' : (Math.round(v * 10) / 10).toString().replace('.', ','); }
+function fmt(v) { return v == null ? '—' : typeof v === 'string' ? v : (Math.round(v * 10) / 10).toString().replace('.', ','); }
 function num(v) { return v == null ? null : Number(v); }
 function avg(list) {
-  var x = list.filter(function (v) { return v != null; });
+  var x = list.filter(function (v) { return typeof v === 'number'; });
   return x.length ? x.reduce(function (s, v) { return s + v; }, 0) / x.length : null;
 }
 function pname(id) { var p = D.profiles[id]; return p ? p.full_name : '—'; }
@@ -352,7 +352,7 @@ async function loadScores(pid) {
   if (pid == null || D.scores[pid]) return;
   var rows = await fetchAll('scores', function (q) { return q.eq('period_id', pid).order('student_id').order('subject').order('item'); });
   var m = {};
-  rows.forEach(function (r) { m[r.student_id + '|' + r.subject + '|' + r.item] = Number(r.value); });
+  rows.forEach(function (r) { m[r.student_id + '|' + r.subject + '|' + r.item] = r.value == null ? 'н' : Number(r.value); });
   D.scores[pid] = m;
 }
 function curPeriod() { return D.periods.filter(function (p) { return p.id === S.period; })[0]; }
@@ -384,7 +384,7 @@ async function saveScore(sid, subj, item, val) {
     r = await sb.from('scores').delete().match({ student_id: sid, period_id: pid, subject: subj, item: item }).select();
     if (!r.error && had && (!r.data || !r.data.length)) r = { error: { message: 'denied' } };
   } else {
-    r = await sb.from('scores').upsert({ student_id: sid, period_id: pid, subject: subj, item: item, value: val, entered_by: S.uid, updated_at: new Date().toISOString() }, { onConflict: 'student_id,period_id,subject,item' }).select();
+    r = await sb.from('scores').upsert({ student_id: sid, period_id: pid, subject: subj, item: item, value: val === 'н' ? null : val, entered_by: S.uid, updated_at: new Date().toISOString() }, { onConflict: 'student_id,period_id,subject,item' }).select();
   }
   if (r.error) { toast(t('saveErr')); return false; }
   if (val == null) delete D.scores[pid][key]; else D.scores[pid][key] = val;
@@ -413,10 +413,10 @@ function groupName(list, id) { var g = list.filter(function (x) { return x.id ==
 
 /* ===================== элементы ===================== */
 function row(label, v) {
-  return '<div class="row"><span>' + label + '</span><span class="bar"><i style="width:' + (v == null ? 0 : v) + '%"></i></span><span class="val' + (v == null ? ' none' : '') + '">' + fmt(v) + '</span></div>';
+  return '<div class="row"><span>' + label + '</span><span class="bar"><i style="width:' + (typeof v === 'number' ? v : 0) + '%"></i></span><span class="val' + (typeof v !== 'number' ? ' none' : '') + '">' + fmt(v) + '</span></div>';
 }
 function ring(v) {
-  var C = 2 * Math.PI * 54, off = v == null ? C : C * (1 - Math.min(100, v) / 100);
+  var C = 2 * Math.PI * 54, off = typeof v !== 'number' ? C : C * (1 - Math.min(100, Number(v)) / 100);
   return '<svg class="ring" viewBox="0 0 140 140" role="img" aria-label="' + fmt(v) + '"><circle class="trk" cx="70" cy="70" r="54"/><circle class="arc" cx="70" cy="70" r="54" stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '" transform="rotate(-90 70 70)"/><text x="70" y="80" text-anchor="middle">' + fmt(v) + '</text></svg>';
 }
 function totalCard(cls, c, isEng) {
@@ -536,7 +536,7 @@ function gridHtml(list, subj, course) {
     h += '<tr' + (stu.status !== 'active' ? ' class="dim"' : '') + '><td><button type="button" data-a="open" data-sid="' + stu.id + '">' + esc(pname(stu.id)) + '</button></td>';
     cols.forEach(function (c) {
       var v = getScore(stu.id, subj, c.item);
-      h += '<td' + (c.sep ? ' class="sep"' : '') + '><input class="cell" inputmode="decimal" autocomplete="off" data-sid="' + stu.id + '" data-subj="' + subj + '" data-item="' + c.item + '" value="' + (v == null ? '' : v) + '"' + (ed ? '' : ' disabled') + '></td>';
+      h += '<td' + (c.sep ? ' class="sep"' : '') + '><input class="cell" inputmode="text" autocomplete="off" data-sid="' + stu.id + '" data-subj="' + subj + '" data-item="' + c.item + '" value="' + (v == null ? '' : v) + '"' + (ed ? '' : ' disabled') + '></td>';
     });
     h += '<td class="tot sep" data-tot="' + stu.id + '|' + subj + '">' + fmt(tot) + '</td></tr>';
   });
@@ -563,7 +563,7 @@ function specialCards(list) {
     var n = D.idp[stu.id];
     out += '<section class="card"><h2>' + esc(pname(stu.id)) + '</h2>' +
       '<p class="kicker">' + esc(stu.special_subject || t('edu')) + ' · ' + t('monthExam') + '</p>' +
-      '<div><input class="cell" inputmode="decimal" data-sid="' + stu.id + '" data-subj="speech" data-item="exam" value="' + (v == null ? '' : v) + '"' + (edM ? '' : ' disabled') + '></div>' +
+      '<div><input class="cell" inputmode="text" data-sid="' + stu.id + '" data-subj="speech" data-item="exam" value="' + (v == null ? '' : v) + '"' + (edM ? '' : ' disabled') + '></div>' +
       '<p class="kicker">' + t('steps') + '</p><div class="pmrow">' + h + '</div>' +
       '<p class="kicker">' + t('idpSite') + '</p><textarea class="t" id="idp-' + stu.id + '"' + (edM ? '' : ' disabled') + '>' + esc(n ? n.content : '') + '</textarea>' +
       (edM ? '<div><button type="button" class="solid pink" data-a="idpsave" data-sid="' + stu.id + '">' + t('save') + '</button></div>' : '') + '</section>';
@@ -586,7 +586,7 @@ function viewGrades() {
   else {
     var shown = list;
     if (S.gsub !== 'english') shown = list.filter(function (s) { return s.kind !== 'special' && s.takes_book_edu; });
-    out += gridHtml(shown, S.gsub, course);
+    out += gridHtml(shown, S.gsub, course) + '<p class="note">' + t('absNote') + '</p>';
     if (S.gsub === 'english' && isM && list.some(function (s) { return !editable(s, 'english'); }) && !S.admin) out += '<p class="note">' + t('readonly') + '</p>';
   }
   return out;
@@ -744,6 +744,7 @@ document.addEventListener('submit', async function (e) {
 function readNum(raw) {
   raw = String(raw).trim().replace(',', '.');
   if (raw === '') return { ok: true, v: null };
+  if (/^[нНnN]\.?$/.test(raw)) return { ok: true, v: 'н' };
   var n = Number(raw);
   if (!isFinite(n) || n < 0 || n > 100) return { ok: false };
   return { ok: true, v: Math.round(n * 100) / 100 };
