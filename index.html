@@ -212,7 +212,7 @@ var START_PW = '123456';
 var I18N = {
   ru: {
     schedule:'Расписание', book:'Книга', edu:'Предмет', eng:'Английский', idp:'IDP', steps:'Шаги',
-    cab:'Кабинет', grades:'Оценки', students:'Студенты', months:'Месяцы',
+    cab:'Кабинет', allLbl:'Все', fullSched:'Расписание академии', grades:'Оценки', students:'Студенты', months:'Месяцы',
     week:'Неделя', examweek:'Экзаменационная неделя', read:'Чтение (Оқу)', talk:'Обсуждение (Талқылау)', test:'Тест', essay:'Эссе', presentation:'Презентация', exam2:'Экзамен 2',
     etude:'Этюд', ent:'Пробный ЕНТ', attendance:'Посещаемость', exam:'Экзамен', monthExam:'Экзамен месяца',
     total:'Итог за месяц', weeksLbl:'Недели', examsLbl:'Экзамены', waitExam:'Итог будет после экзамена', noScores:'Оценок пока нет',
@@ -238,7 +238,7 @@ var I18N = {
   },
   kk: {
     schedule:'Кесте', book:'Кітап', edu:'Пән', eng:'Ағылшын', idp:'IDP', steps:'Қадам',
-    cab:'Кабинет', grades:'Бағалар', students:'Студенттер', months:'Айлар',
+    cab:'Кабинет', allLbl:'Барлығы', fullSched:'Академия кестесі', grades:'Бағалар', students:'Студенттер', months:'Айлар',
     week:'Апта', examweek:'Емтихан аптасы', read:'Оқу', talk:'Талқылау', test:'Тест', essay:'Эссе', presentation:'Презентация', exam2:'Емтихан 2',
     etude:'Этюд', ent:'ҰБТ сынақ', attendance:'Қатысу', exam:'Емтихан', monthExam:'Ай емтиханы',
     total:'Айлық қорытынды', weeksLbl:'Апталар', examsLbl:'Емтихандар', waitExam:'Қорытынды емтиханнан кейін шығады', noScores:'Әзірге баға жоқ',
@@ -289,7 +289,7 @@ var ITEMS = {
 
 /* ===================== состояние ===================== */
 var sb = supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
-var S = { lang: 'ru', uid: null, admin: false, mg: [], tg: [], nav: 'me', tab: 'schedule', dtab: 'schedule', period: null, gsel: null, gsub: 'book', sel: null, q: '', pwdOpen: false, resetAsk: false, busy: false, loggedIn: false, loginErr: '' };
+var S = { sf: 'all', lang: 'ru', uid: null, admin: false, mg: [], tg: [], nav: 'me', tab: 'schedule', dtab: 'schedule', period: null, gsel: null, gsub: 'book', sel: null, q: '', pwdOpen: false, resetAsk: false, busy: false, loggedIn: false, loginErr: '' };
 var D = { profiles: {}, students: {}, mgroups: [], egroups: [], periods: [], books: [], slots: [], idp: {}, scores: {} };
 try { var sv = localStorage.getItem('mu-lang'); if (sv === 'ru' || sv === 'kk') S.lang = sv; } catch (e) {}
 
@@ -635,6 +635,26 @@ function viewDetail() {
   return h + studentBody(stu, S.dtab, true);
 }
 
+/* ===================== всё расписание академии (админ) ===================== */
+function viewFullSchedule() {
+  var jsDay = new Date().getDay(), today = jsDay === 0 ? 7 : jsDay;
+  var f = S.sf, all = D.slots.filter(function (s) { return f === 'all' || (f === 'english' ? s.kind === 'english' : s.kind === 'book_edu'); })
+    .sort(function (a, b) { return a.weekday - b.weekday || String(a.start_time).localeCompare(String(b.start_time)); });
+  var out = '<div class="seg wide" role="group">' + [['all', t('allLbl')], ['book_edu', t('book') + ' · ' + t('edu')], ['english', t('eng')]].map(function (x) {
+    return '<button type="button" data-sf="' + x[0] + '" aria-pressed="' + (f === x[0]) + '">' + esc(x[1]) + '</button>'; }).join('') + '</div>';
+  var days = '';
+  for (var d = 1; d <= 7; d++) {
+    var items = all.filter(function (s) { return s.weekday === d; });
+    days += '<section class="day' + (d === today ? ' is-today' : '') + '"><div class="dayhead"><h3>' + DAYS[S.lang][d - 1] + '</h3>' + (d === today ? '<span class="today">' + t('today') + '</span>' : '') + '</div>';
+    if (!items.length) days += '<div class="free">' + t('noClass') + '</div>';
+    items.forEach(function (s) {
+      days += '<div class="slot"><div class="time">' + hhmm(s.start_time) + '<small>' + hhmm(s.end_time) + '</small></div><div><div class="t">' + esc(s.title) + '</div><span class="tag ' + (s.kind === 'english' ? 'eng' : 'be') + '">' + (s.kind === 'english' ? t('eng') : esc(s.note || t('book') + ' · ' + t('edu'))) + '</span></div></div>';
+    });
+    days += '</section>';
+  }
+  return out + '<div class="card"><p class="kicker">' + t('fullSched') + '</p>' + days + '</div><p class="note">' + t('examNote') + '</p>';
+}
+
 /* ===================== месяцы (админ) ===================== */
 function viewMonths() {
   return D.periods.map(function (p) {
@@ -663,7 +683,7 @@ function viewLogin() {
 function navKeys() {
   var me = D.students[S.uid];
   if (!isStaff()) return me ? cabinetTabs(me) : [];
-  var k = []; if (me) k.push('me'); k.push('grades'); if (S.admin) { k.push('students'); k.push('months'); }
+  var k = []; if (me) k.push('me'); k.push('grades'); if (S.admin) { k.push('students'); k.push('months'); k.push('schedule'); }
   return k;
 }
 function curKey() { return isStaff() ? S.nav : S.tab; }
@@ -711,6 +731,7 @@ function render() {
     } else if (S.nav === 'grades') { body = viewGrades(); showPeriod = true; }
     else if (S.nav === 'students') { body = viewStudents(); showPeriod = true; }
     else if (S.nav === 'months') body = viewMonths();
+    else if (S.nav === 'schedule') body = viewFullSchedule();
   } else if (me2) {
     var tb2 = cabinetTabs(me2); if (tb2.indexOf(S.tab) < 0) S.tab = tb2[0];
     body = studentBody(me2, S.tab, false); showPeriod = ['book', 'edu', 'eng', 'spec', 'steps'].indexOf(S.tab) >= 0;
@@ -834,9 +855,10 @@ async function act(b) {
   }
 }
 document.addEventListener('click', function (e) {
-  var b = e.target.closest('[data-a],[data-nav],[data-tab],[data-dtab],[data-gsub],[data-period],[data-lang]');
+  var b = e.target.closest('[data-a],[data-nav],[data-tab],[data-dtab],[data-gsub],[data-period],[data-lang],[data-sf]');
   if (!b) return;
   if (b.dataset.a) { act(b); return; }
+  if (b.dataset.sf) { S.sf = b.dataset.sf; render(); return; }
   if (b.dataset.lang) { S.lang = b.dataset.lang; try { localStorage.setItem('mu-lang', S.lang); } catch (x) {} render(); return; }
   if (b.dataset.nav) { if (isStaff()) S.nav = b.dataset.nav; else S.tab = b.dataset.nav; S.sel = null; window.scrollTo(0, 0); render(); return; }
   if (b.dataset.tab) { S.tab = b.dataset.tab; render(); return; }
