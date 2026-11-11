@@ -62,6 +62,14 @@ button { cursor: pointer; }
 .hero { --c: var(--accent); --cs: var(--accent-soft); position: relative; overflow: hidden; border-radius: 16px; background: var(--cs); min-height: 116px; padding: 12px; }
 .hero > svg { position: absolute; inset: 0; width: 100%; height: 100%; color: var(--c); opacity: .5; }
 .hero .top { position: relative; }
+.hero img.cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.hero.has-cover { min-height: 150px; }
+.camb { position: absolute; right: 10px; bottom: 10px; z-index: 2; width: 38px; height: 38px; border-radius: 50%; border: 0; background: var(--surface); color: var(--ink); display: grid; place-items: center; opacity: .92; }
+.camb svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.covermenu { position: absolute; right: 10px; bottom: 56px; z-index: 3; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 6px; display: grid; gap: 2px; min-width: 190px; box-shadow: 0 6px 24px rgba(0,0,0,.25); }
+.covermenu button { border: 0; background: transparent; text-align: left; padding: 11px 12px; border-radius: 8px; font-size: 14px; font-weight: 600; }
+.covermenu button:active { background: var(--accent-soft); }
+.hero.has-cover::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,.28), rgba(0,0,0,0) 60%); }
 
 .who summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .who summary::-webkit-details-marker { display: none; }
@@ -181,6 +189,10 @@ input.cell:disabled { background: transparent; border-color: transparent; color:
 <div class="app">
   <div class="hero" id="hero">
     <svg aria-hidden="true" focusable="false"><defs><pattern id="sg" width="48" height="24" patternUnits="userSpaceOnUse"><g fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="0" cy="24" r="22"/><circle cx="0" cy="24" r="15"/><circle cx="0" cy="24" r="8"/><circle cx="48" cy="24" r="22"/><circle cx="48" cy="24" r="15"/><circle cx="48" cy="24" r="8"/><circle cx="24" cy="12" r="22"/><circle cx="24" cy="12" r="15"/><circle cx="24" cy="12" r="8"/></g></pattern></defs><rect width="100%" height="100%" fill="url(#sg)"/></svg>
+    <img class="cover" id="cover" alt="" hidden>
+    <button type="button" class="camb" id="camb" data-a="covermenu" aria-label="Фото / Сурет" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+    <div class="covermenu" id="covermenu" hidden><button type="button" data-a="coverpick" id="cm-pick"></button><button type="button" data-a="coverclear" id="cm-clear"></button></div>
+    <input type="file" id="coverfile" accept="image/*" hidden>
     <div class="top">
       <div class="brand">MUGALIM ACADEMY</div>
       <div class="seg" role="group" aria-label="Язык / Тіл">
@@ -212,7 +224,7 @@ var START_PW = '123456';
 var I18N = {
   ru: {
     schedule:'Расписание', book:'Книга', edu:'Предмет', eng:'Английский', idp:'IDP', steps:'Шаги',
-    cab:'Кабинет', allLbl:'Все', fullSched:'Расписание академии', grades:'Оценки', students:'Студенты', months:'Месяцы',
+    cab:'Кабинет', allLbl:'Все', coverPick:'Выбрать фото', coverClear:'Убрать моё фото', coverBad:'Не удалось загрузить фото', coverOk:'Фото обновлено', fullSched:'Расписание академии', grades:'Оценки', students:'Студенты', months:'Месяцы',
     week:'Неделя', examweek:'Экзаменационная неделя', read:'Чтение (Оқу)', talk:'Обсуждение (Талқылау)', test:'Тест', essay:'Эссе', presentation:'Презентация', exam2:'Экзамен 2',
     etude:'Этюд', ent:'Пробный ЕНТ', attendance:'Посещаемость', exam:'Экзамен', monthExam:'Экзамен месяца',
     total:'Итог за месяц', weeksLbl:'Недели', examsLbl:'Экзамены', waitExam:'Итог будет после экзамена', noScores:'Оценок пока нет',
@@ -238,7 +250,7 @@ var I18N = {
   },
   kk: {
     schedule:'Кесте', book:'Кітап', edu:'Пән', eng:'Ағылшын', idp:'IDP', steps:'Қадам',
-    cab:'Кабинет', allLbl:'Барлығы', fullSched:'Академия кестесі', grades:'Бағалар', students:'Студенттер', months:'Айлар',
+    cab:'Кабинет', allLbl:'Барлығы', coverPick:'Сурет таңдау', coverClear:'Суретті алып тастау', coverBad:'Сурет жүктелмеді', coverOk:'Сурет жаңартылды', fullSched:'Академия кестесі', grades:'Бағалар', students:'Студенттер', months:'Айлар',
     week:'Апта', examweek:'Емтихан аптасы', read:'Оқу', talk:'Талқылау', test:'Тест', essay:'Эссе', presentation:'Презентация', exam2:'Емтихан 2',
     etude:'Этюд', ent:'ҰБТ сынақ', attendance:'Қатысу', exam:'Емтихан', monthExam:'Ай емтиханы',
     total:'Айлық қорытынды', weeksLbl:'Апталар', examsLbl:'Емтихандар', waitExam:'Қорытынды емтиханнан кейін шығады', noScores:'Әзірге баға жоқ',
@@ -687,6 +699,55 @@ function navKeys() {
   return k;
 }
 function curKey() { return isStaff() ? S.nav : S.tab; }
+var coverKey = null, CUSTOM = null;
+function setCover(key) {
+  var sig = (CUSTOM ? 'c' : '') + key;
+  if (coverKey === sig) return; coverKey = sig;
+  var img = el('cover'), hero = el('hero'), names = CUSTOM ? [CUSTOM] : (key ? ['cover-' + key + '.jpg'] : []).concat(['cover.jpg']), i = 0;
+  img.hidden = true; hero.classList.remove('has-cover');
+  (function tryNext() {
+    if (i >= names.length) { img.removeAttribute('src'); return; }
+    var url = names[i++];
+    img.onload = function () { if (coverKey === sig) { img.hidden = false; hero.classList.add('has-cover'); } };
+    img.onerror = tryNext;
+    img.src = url;
+  })();
+}
+function coverLS() { return 'mu-cover-' + S.uid; }
+async function loadCustomCover() {
+  try { CUSTOM = localStorage.getItem(coverLS()) || null; } catch (e) { CUSTOM = null; }
+  try {
+    var r = await sb.from('user_covers').select('data').eq('user_id', S.uid);
+    if (!r.error && r.data) {
+      if (r.data.length) { if (r.data[0].data !== CUSTOM) { CUSTOM = r.data[0].data; try { localStorage.setItem(coverLS(), CUSTOM); } catch (e) {} } }
+      else if (CUSTOM) { sb.from('user_covers').upsert({ user_id: S.uid, data: CUSTOM, updated_at: new Date().toISOString() }, { onConflict: 'user_id' }).then(function () {}, function () {}); }
+    }
+  } catch (e) {}
+}
+async function saveCover(data) {
+  CUSTOM = data || null;
+  try { if (data) localStorage.setItem(coverLS(), data); else localStorage.removeItem(coverLS()); } catch (e) {}
+  try {
+    if (data) await sb.from('user_covers').upsert({ user_id: S.uid, data: data, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    else await sb.from('user_covers').delete().eq('user_id', S.uid);
+  } catch (e) {}
+  coverKey = null; render();
+}
+function shrinkImage(file) {
+  return new Promise(function (resolve, reject) {
+    var url = URL.createObjectURL(file), im = new Image();
+    im.onload = function () {
+      try {
+        var W = 1200, H = 400, c = document.createElement('canvas'); c.width = W; c.height = H;
+        var k = Math.max(W / im.width, H / im.height), w = im.width * k, h = im.height * k;
+        c.getContext('2d').drawImage(im, (W - w) / 2, (H - h) / 2, w, h);
+        URL.revokeObjectURL(url); resolve(c.toDataURL('image/jpeg', 0.78));
+      } catch (e) { reject(e); }
+    };
+    im.onerror = function () { URL.revokeObjectURL(url); reject(new Error('img')); };
+    im.src = url;
+  });
+}
 function heroClass() {
   var k = S.sel ? S.dtab : (isStaff() && S.nav === 'me' || !isStaff() ? S.tab : '');
   return 'hero ' + ({ book: 'c-book', edu: 'c-edu', spec: 'c-edu', eng: 'c-eng', steps: 'c-book' }[k] || (S.gsel && S.nav === 'grades' ? { book: 'c-book', edu: 'c-edu', english: 'c-eng' }[S.gsub] || '' : ''));
@@ -704,10 +765,11 @@ function render() {
   document.querySelectorAll('[data-lang]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.lang === S.lang)); });
   var view = el('view');
   if (!S.loggedIn) {
-    el('who').hidden = true; el('navwrap').hidden = true; el('periodbar').hidden = true; el('innerbar').innerHTML = '';
-    el('hero').className = 'hero'; view.innerHTML = viewLogin(); return;
+    el('camb').hidden = true; el('covermenu').hidden = true; el('who').hidden = true; el('navwrap').hidden = true; el('periodbar').hidden = true; el('innerbar').innerHTML = '';
+    el('hero').className = 'hero' + (el('cover').hidden ? '' : ' has-cover'); setCover(''); view.innerHTML = viewLogin(); return;
   }
   var meP = D.profiles[S.uid] || {};
+  el('camb').hidden = false; el('cm-pick').textContent = t('coverPick'); el('cm-clear').textContent = t('coverClear'); el('cm-clear').hidden = !CUSTOM;
   el('who').hidden = false; el('name').textContent = meP.full_name || '';
   el('chips').innerHTML = roleChips();
   el('panel').innerHTML = '<div class="kv"><span>' + t('login') + '</span><span>' + esc(meP.username) + '</span></div>' +
@@ -737,7 +799,8 @@ function render() {
     body = studentBody(me2, S.tab, false); showPeriod = ['book', 'edu', 'eng', 'spec', 'steps'].indexOf(S.tab) >= 0;
   } else body = '<p class="note">' + t('noRights') + '</p>';
   el('innerbar').innerHTML = inner;
-  el('hero').className = heroClass();
+  var hc = heroClass(); el('hero').className = hc + (el('cover').hidden ? '' : ' has-cover');
+  setCover({ 'hero c-book': 'book', 'hero c-edu': 'edu', 'hero c-eng': 'eng' }[hc] || '');
   var pb = el('periodbar'); pb.hidden = !showPeriod;
   pb.innerHTML = D.periods.map(function (p) { return '<button type="button" data-period="' + p.id + '" aria-pressed="' + (S.period === p.id) + '">' + esc(S.lang === 'kk' ? p.name_kk : p.name_ru) + '</button>'; }).join('');
   view.innerHTML = body;
@@ -748,6 +811,7 @@ async function go() { try { await loadScores(S.period); } catch (e) { toast(t('l
 async function afterLogin(user) {
   S.uid = user.id; S.loggedIn = true; el('view').innerHTML = '<p class="note">' + t('loading') + '</p>';
   try { await loadAll(); } catch (e) { toast(t('loadErr')); console.error(e); }
+  await loadCustomCover(); coverKey = null;
   var keys = navKeys(); S.nav = keys[0] || 'me'; S.tab = (D.students[S.uid] ? cabinetTabs(D.students[S.uid])[0] : 'schedule');
   render();
 }
@@ -775,6 +839,11 @@ function refreshTot(sid, subj) {
 }
 document.addEventListener('change', async function (e) {
   var x = e.target;
+  if (x.id === 'coverfile') {
+    var f = x.files && x.files[0]; x.value = ''; if (!f) return;
+    try { var d = await shrinkImage(f); await saveCover(d); toast(t('coverOk')); } catch (err) { toast(t('coverBad')); }
+    return;
+  }
   if (x.id === 'gsel') { S.gsel = x.value; S.gsub = 'book'; render(); return; }
   if (x.classList && x.classList.contains('cell')) {
     var sid = x.dataset.sid, subj = x.dataset.subj, item = x.dataset.item, r = readNum(x.value), old = getScore(sid, subj, item);
@@ -794,7 +863,10 @@ document.addEventListener('input', function (e) {
 });
 async function act(b) {
   var a = b.dataset.a, sid = b.dataset.sid;
-  if (a === 'out') { await sb.auth.signOut(); S.loggedIn = false; S.sel = null; S.pwdOpen = false; render(); return; }
+  if (a === 'covermenu') { el('covermenu').hidden = !el('covermenu').hidden; return; }
+  if (a === 'coverpick') { el('covermenu').hidden = true; el('coverfile').click(); return; }
+  if (a === 'coverclear') { el('covermenu').hidden = true; await saveCover(null); return; }
+  if (a === 'out') { await sb.auth.signOut(); CUSTOM = null; coverKey = null; S.loggedIn = false; S.sel = null; S.pwdOpen = false; render(); return; }
   if (a === 'pwd') { S.pwdOpen = !S.pwdOpen; render(); return; }
   if (a === 'pwdsave') {
     var np = el('np').value;
@@ -855,6 +927,7 @@ async function act(b) {
   }
 }
 document.addEventListener('click', function (e) {
+  if (S.loggedIn && e.target.closest('#hero') && !e.target.closest('.seg,.covermenu,.camb')) { el('covermenu').hidden = !el('covermenu').hidden; return; }
   var b = e.target.closest('[data-a],[data-nav],[data-tab],[data-dtab],[data-gsub],[data-period],[data-lang],[data-sf]');
   if (!b) return;
   if (b.dataset.a) { act(b); return; }
